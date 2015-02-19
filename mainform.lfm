@@ -1,0 +1,31 @@
+object UI: TUI
+  Left = 512
+  Height = 300
+  Top = 252
+  Width = 400
+  Caption = 'Network Audio Client'
+  ClientHeight = 300
+  ClientWidth = 400
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  ParentFont = False
+  LCLVersion = '0.9.26'
+  object StartStopButton: TButton
+    Left = 280
+    Height = 25
+    Top = 144
+    Width = 75
+    Caption = 'Start'
+    OnClick = StartStopButtonClick
+    TabOrder = 0
+  end
+  object Console: TMemo
+    Left = 8
+    Height = 90
+    Top = 200
+    Width = 384
+    Enabled = False
+    ScrollBars = ssAutoVertical
+    TabOrder = 1
+  end
+end

@@ -1,0 +1,105 @@
+program
+  NetworkAudioServer;
+
+uses
+  sockets, windows, paudio, datagram, fgl, syncobjs, datagram;
+
+{$i common.inc}
+
+type
+
+  TMapNetworkStreamer=specialize TFPGMap<dword, TPortAudioStreamer>;
+
+  TNetworkAudioServer=class(TDatagramServer)
+    protected
+      FClients:TMapNetworkStreamer;
+      procedure Sync(addr:dword; p:TClientPacket);
+      procedure SendPacket(addr:dword; packetType:byte);
+    public
+      constructor Create(port:word);
+      destructor Destroy();override;
+      procedure OnDatagram(sender:TInetSockAddr; data:pointer; length:integer);override;
+  end;
+
+{ TNetworkAudioServer }
+
+constructor TNetworkAudioServer.Create(port:word);
+begin;
+  FClients:=TMapNetworkStreamer.Create();
+  inherited Create(port);
+end;
+
+destructor TNetworkAudioServer.Destroy();
+begin
+  FClients.Free();
+  inherited Destroy();
+end;
+
+procedure TNetworkAudioServer.SendPacket(addr:dword; packetType:byte);
+//var
+//  sock:TDatagramSocket;
+begin
+  //sock:=TDatagramSocket.Create(NetAddrToStr(in_addr(addr)), FPort);
+end;
+
+procedure TNetworkAudioServer.Sync(addr:dword; p:TClientPacket);
+var
+  xAddr:pByte;
+begin
+  if(p.sampleRate<16000)or(p.sampleRate>96000)then
+    SendPacket(addr, NAS_PACKET_BADSYNC)
+  else if(p.bitsPerSample<8)or(p.bitsPerSample>32)or(p.bitsPerSample mod 8<>0)then
+    SendPacket(addr, NAS_PACKET_BADSYNC)
+  else if(p.numChannels<1)or(p.numChannels>6)then
+    SendPacket(addr, NAS_PACKET_BADSYNC)
+  else
+  begin
+    try
+      //release old wave streamer
+      FClients[addr].Free();
+    except
+    end;
+    // (re)sync to new values and await data
+    FClients[addr]:=TPortAudioStreamer.Create(max(20, p.packetSize), p.sampleRate, p.bitsPerSample div 8, p.numChannels);
+
+    SendPacket(addr, NAS_PACKET_READY);
+    xAddr:=pByte(@addr);
+    writeln('Sync ok: ', xAddr[0],'.',xAddr[1],'.',xAddr[2],'.',xAddr[3],': ',p.packetSize,' ',p.sampleRate,' ',p.bitsPerSample,' ',p.numChannels);
+  end;
+end;
+
+procedure TNetworkAudioServer.OnDatagram(sender:TInetSockAddr; data:pointer; length:integer);
+var
+  MyPacket:PClientPacket;
+begin
+  if(length<sizeof(TClientPacket))then
+  begin
+    //invalid packet; prevent buffer overflow
+    SendPacket(sender.addr, NAS_PACKET_SYNC);
+    exit();
+  end;
+
+  MyPacket:=PClientPacket(data);
+
+  if(MyPacket^.SyncPacket)then//packet is a sync packet; try to (re)sync the client
+    Sync(sender.addr, MyPacket^)
+  else//packet is an audio datagram
+  try
+    FClients[sender.addr].OnData(@MyPacket^.data, length-5);//datagram sent
+  except
+    SendPacket(sender.addr, NAS_PACKET_SYNC);//client doesn't exist; send back sync
+  end;
+end;
+
+var
+  MyServer:TNetworkAudioServer;
+
+{$IFDEF WINDOWS}{$R NetworkAudioServer.rc}{$ENDIF}
+
+begin
+  //Application.Title:='Network Audio Server';
+  MyServer:=TNetworkAudioServer.Create(325);
+  writeln('Server up. Press <ENTER> to shutdown');
+  readln();
+  MyServer.Free();
+end.

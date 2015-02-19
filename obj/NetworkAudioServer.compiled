@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<CONFIG>
+  <Compiler Value="d:\Lazarus\fpc\2.2.2\bin\i386-win32\fpc.exe" Date="960853660"/>
+  <Params Value=" -MObjFPC -Sgi -O1 -gl -vewnhi -l -Fiinc\ -Fuinc\ -Fu. -FUobj\ -obin\NetworkAudioServer.exe NetworkAudioServer.lpr"/>
+</CONFIG>
